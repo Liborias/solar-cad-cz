@@ -151,7 +151,7 @@ fn draw_project(host:&mut dyn HostApi,p:Parameters){
   Ok(l)=>l,
   Err(e)=>{host.push_error(&format!("Solar CAD CZ: {e}"));return;}
  };
- host.begin_undo_group("Solar CAD CZ - vykres panelu");
+ host.push_undo("Solar CAD CZ - vykres panelu");
  ensure_layer(host,"SOL_STRECHA",Color::Index(7),"Obrys strechy");
  ensure_layer(host,"SOL_PANELY",Color::Index(4),"FV moduly");
  ensure_layer(host,"SOL_POPISY",Color::Index(2),"Cisla a legenda");
@@ -202,7 +202,6 @@ fn draw_project(host:&mut dyn HostApi,p:Parameters){
    ]));
   }
  }
- host.end_undo_group();
  host.set_dirty();
  host.push_info(&format!(
   "Solar CAD CZ: {} panelu ({} x {}), {:.3} kWp. POUZE VYUKA.",
