@@ -296,6 +296,23 @@ mod dialog_tests {
   assert!(ids.contains(&"rw"));
   assert!(ids.contains(&"orientation"));
  }
+ #[test] fn modal_submit_commits_without_clicks(){
+  let mut vals=HashMap::new();
+  for (key,v) in [
+   ("rw",10000.),("rh",6500.),("mw",1134.),("mh",1722.),
+   ("wp",450.),("gap",20.),("offset",350.),("ox",0.),("oy",0.)
+  ]{vals.insert(key.to_owned(),DialogValue::Number(v));}
+  vals.insert("orientation".into(),DialogValue::Choice{index:0,text:"Automaticky".into()});
+  let mut command=SolarLayoutCommand;
+  match command.on_dialog_response(DialogResponse::Submitted(vals)) {
+   CommandStep::CommitManyAndEnd(entities)=>{
+    assert_eq!(entities.len(),60);
+    assert!(matches!(&entities[0],EntityType::LwPolyline(_)));
+   }
+   other=>panic!("Submitting the modal did not commit entities: {other:?}")
+  }
+  assert!(matches!(command.on_dialog_response(DialogResponse::Cancelled),CommandStep::Cancel));
+ }
  #[test] fn model_creates_panel_entities(){
   let (entities,count,power)=build_layout_entities(&Parameters::default()).unwrap();
   assert_eq!(count,25);
