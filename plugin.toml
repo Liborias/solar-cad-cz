@@ -1,0 +1,14 @@
+[plugin]
+id = "cz.solarcad.education"
+name = "Solar CAD CZ - Vyuka"
+version = "0.1.0"
+description = "Educational photovoltaic roof 2D layout and installed power"
+author = "Liborias"
+license = "GPL-3.0-only"
+repository = "Liborias/solar-cad-cz"
+
+[opencad]
+api_version = 14
+ribbon_order = 65
+command_prefixes = ["SOL_"]
+xdata_apps = ["SOLARCAD_CZ"]

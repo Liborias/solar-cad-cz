@@ -1,0 +1,59 @@
+name: Build and publish Solar CAD CZ
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, platform: windows-x86_64, library: solar_cad_cz.dll, asset: cz.solarcad.education-windows-x86_64.dll }
+          - { os: ubuntu-latest, platform: linux-x86_64, library: libsolar_cad_cz.so, asset: cz.solarcad.education-linux-x86_64.so }
+          - { os: macos-latest, platform: macos-aarch64, library: libsolar_cad_cz.dylib, asset: cz.solarcad.education-macos-aarch64.dylib }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run tests
+        run: cargo test
+      - name: Build plugin
+        run: cargo build --release
+      - name: Stage asset
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp 'target/release/${{ matrix.library }}' 'dist/${{ matrix.asset }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-${{ matrix.platform }}
+          path: dist/${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: plugin-*
+          path: dist
+          merge-multiple: true
+      - run: cp plugin.toml dist/plugin.toml
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true

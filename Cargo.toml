@@ -1,0 +1,12 @@
+[package]
+name = "solar-cad-cz"
+version = "0.1.0"
+edition = "2021"
+description = "Educational photovoltaic roof layout for Open CAD Studio"
+license = "GPL-3.0-only"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ocs_plugin_api = { git = "https://github.com/HakanSeven12/OpenCADStudio", rev = "63045954c4b75cbed764a5d044836c2d393de4f4", features = ["host"] }
