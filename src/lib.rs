@@ -171,7 +171,7 @@ fn ensure_layer(host:&mut dyn HostApi,name:&str,color:Color,description:&str){
 /// Build entities for the form-driven interactive command. The returned entities
 /// are committed as one built-in CAD operation when the modal is submitted.
 fn build_layout_entities(p:&Parameters)->Result<(Vec<EntityType>,usize,f64),String>{
- let result=compute(p).map_err(str::to_owned)?;
+ let result=compute(p).map_err(|e| e.to_string())?;
  let mut entities=Vec::with_capacity(2*result.panels.len()+16);
  let mut roof=rect(p.origin_x,p.origin_y,p.roof_width,p.roof_height,"SOL_STRECHA");
  roof.common_mut().extended_data.upsert_record(record(vec![
@@ -213,7 +213,9 @@ fn build_layout_entities(p:&Parameters)->Result<(Vec<EntityType>,usize,f64),Stri
 }
 
 fn ensure_project_layers(host:&mut dyn HostApi){
- ensure_project_layers(host);
+ ensure_layer(host,"SOL_STRECHA",Color::Index(7),"Obrys strechy");
+ ensure_layer(host,"SOL_PANELY",Color::Index(4),"FV moduly");
+ ensure_layer(host,"SOL_POPISY",Color::Index(2),"Cisla a legenda");
 }
 fn draw_project(host:&mut dyn HostApi,p:Parameters){
  let result=match compute(&p){
