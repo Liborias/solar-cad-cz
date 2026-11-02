@@ -32,3 +32,7 @@ Na Windows OCS 2026.44 po úspěšné instalaci v0.1.1 fungovaly `SOL_HELP` a `S
 Příčina potvrzena v `src/app/plugin_host.rs` OCS: `HostSession::show_dialog` otevře dialog, ale bez čekání vrací `DialogResponse::Cancelled`. Pro zpracování skutečného odeslání je potřeba `HostApi::start_interactive` a `InteractiveCommand::modal_dialog / on_dialog_response`.
 
 V0.1.2 používá správný interaktivní životní cyklus. Kliknutí na `Vytvorit vykres` by mělo ihned vložit všechny entity do výkresu (není potřeba žádný klik do pracovní plochy). Ověřte po vydání a přeinstalování nové DLL. `SOL_DEMO` zůstává beze změny.
+
+## v0.1.3 – červená hláška i při úspěšném návrhu
+
+OCS v `src/app/update/mod.rs` mapuje výstup podprocesu ze `stderr` na `push_error` (červený `INVALID`) a výstup ze `stdout` na `push_output`. V původní implementaci `SolarLayoutCommand::on_dialog_response` se informace `Vytvarim ... panelu, ... kWp` vypisovala přes `eprintln!`; výkres přitom vznikl v pořádku. V0.1.3 mění úspěšnou zprávu na `println!`. Chybové výpisy `Chybne parametry` / `Nelze vytvorit navrh` zůstávají na `stderr`. Ověření uvnitř GUI po vydání je ještě potřeba.

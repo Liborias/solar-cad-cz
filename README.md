@@ -1,4 +1,4 @@
-# Solar CAD CZ – Výuka v0.1.2
+# Solar CAD CZ – Výuka v0.1.3
 
 **První výukový (NEautorizovaný) plugin pro desktopový Open CAD Studio.**
 
@@ -53,3 +53,7 @@ Licence: GPL-3.0-only (viz soubor LICENSE). Přímé přebírání kódu komerč
 ## Oprava pro Open CAD Studio 2026.44
 
 Nejprve vytvoř a nainstaluj GitHub Release `v0.1.2`. V Plugin Manageru odeber staré vydání `v0.1.0`, restartuj CAD, nainstaluj `Liborias/solar-cad-cz` a znovu restartuj. Otestuj postupně příkazy `SOL_HELP`, `SOL_DEMO` a `SOL_LAYOUT`. Pokud se zobrazí `process died; skipping dispatch`, předej prosím přesný log z plugin runneru, protože tato hláška v příkazové řádce neobsahuje konkrétní důvod pádu.
+
+## v0.1.3 – oprava barevného hlášení po vykreslení
+
+V OCS 2026.44 se úspěšné vykreslení formulářem označovalo červeně jako `INVALID: [cz.solarcad.education stderr] ... Vytvarim 15 panelu ...`, ačkoli se výkres správně vytvořil. Příčinou bylo `eprintln!` pro úspěch. Úspěch se nyní zapisuje přes `println!` na stdout; skutečné chyby zůstávají na stderr. Nejde o změnu geometrie, elektrotechnických výpočtů ani opravu API.

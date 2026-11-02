@@ -1,7 +1,7 @@
 [plugin]
 id = "cz.solarcad.education"
 name = "Solar CAD CZ - Vyuka"
-version = "0.1.2"
+version = "0.1.3"
 description = "Educational photovoltaic roof 2D layout and installed power"
 author = "Liborias"
 license = "GPL-3.0-only"

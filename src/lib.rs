@@ -1,4 +1,4 @@
-//! Solar CAD CZ - Vyuka v0.1.2 (Open CAD Studio API v14).
+//! Solar CAD CZ - Vyuka v0.1.3 (Open CAD Studio API v14).
 //! Educational use only; this does NOT certify photovoltaic installation designs.
 mod layout;
 use layout::{compute,Orientation,Parameters};
@@ -133,7 +133,7 @@ impl InteractiveCommand for SolarLayoutCommand {
   };
   match build_layout_entities(&p){
    Ok((entities,count,power))=>{
-    eprintln!("[Solar CAD CZ] Vytvarim {count} panelu, {:.3} kWp",power/1000.);
+    println!("[Solar CAD CZ] Vytvarim {count} panelu, {:.3} kWp",power/1000.);
     CommandStep::CommitManyAndEnd(entities)
    }
    Err(e)=>{eprintln!("[Solar CAD CZ] Nelze vytvorit navrh: {e}");CommandStep::Cancel}
