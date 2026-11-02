@@ -1,4 +1,4 @@
-# Solar CAD CZ – Výuka v0.1.0
+# Solar CAD CZ – Výuka v0.1.1
 
 **První výukový (NEautorizovaný) plugin pro desktopový Open CAD Studio.**
 
@@ -16,7 +16,7 @@
 
 Výchozí vstup: střecha 10 000 × 6 500 mm, modul 1 134 × 1 722 mm, 450 Wp, mezera 20 mm, modelový odstup 350 mm. Automaticky vychází **25 panelů, 5 × 5, 11,25 kWp** (panely na šířku). Jen geometrický výsledek, nikoli doporučený skutečný návrh.
 
-Ukázkové DXF, CSV a PNG jsou součástí samostatného výukového ZIP balíčku dodaného spolu s první verzí.n CAD Studiu bez instalace pluginu. `demo/solar_cad_cz_nahled.png` je ilustrativní náhled, `demo/vykaz_panelu.csv` ukázkový výkaz.
+Ukázkový DXF, CSV a PNG byly dodány samostatně s první výukovou verzí; nejsou v tomto repozitáři. Reálné objekty se vytvářejí příkazem `SOL_DEMO` nebo `SOL_LAYOUT`.
 
 ## Instalace pomocí GitHubu (Open CAD Studio Plugin Manager)
 
@@ -24,7 +24,7 @@ Repozitář: **`Liborias/solar-cad-cz`**.
 
 Open CAD Studio Plugin Manager instaluje nativní `.dll`/`.so`/`.dylib` zveřejněné jako **GitHub Release assets**, nikoliv samotný zdrojový kód. Tento projekt obsahuje `.github/workflows/release.yml` pro automatické sestavení na Windows/Linux/macOS a přiložení binárek i `plugin.toml` ke GitHub Release po vytvoření tagu `v*`.
 
-**V tuto chvíli jde o NEOVĚŘENÝ zdrojový prototyp.** Není doloženo, že se Rust plugin úspěšně kompiluje nebo že se načte v desktopové aplikaci Open CAD Studio. Nejdřív musí uspět GitHub Actions.
+**Status:** Verze 0.1.0 se zkompilovala na všech třech platformách, ale v Open CAD Studio 2026.44 při dispatchi hlásila `process died; skipping dispatch`. Verze 0.1.1 aktualizuje závislost na přesný release commit 2026.44. Její správná funkce v desktopovém CADu čeká na nové praktické ověření.
 
 Podrobný postup: [INSTALACE_WINDOWS.md](INSTALACE_WINDOWS.md).
 
@@ -42,10 +42,14 @@ Podrobný postup: [INSTALACE_WINDOWS.md](INSTALACE_WINDOWS.md).
 
 `src/layout.rs` obsahuje samostatně testovatelné geometrické jádro. `src/lib.rs` realizuje integraci s oficiálním plugin API v14. **Plugin při běhu nepotřebuje Python.**
 
-Pro tuto verzi byl použit vývojový kontrakt z oficiálního referenčního pluginu Open CAD Studio (`ocs_plugin_api` pinovaný na commit `63045954c4b75cbed764a5d044836c2d393de4f4`). Zdrojový kód není v tomto prostředí zkompilovaný ani spuštěný v GUI CADu; může být nutná úprava při konkrétní vydané verzi OCS.
+V0.1.1 používá `ocs_plugin_api` z přesného release commitu Open CAD Studio **v2026.44** (`0e77cae652271d08c7619238e619f9b6668ae17c`). Původní v0.1.0 používala starší revizi `63045954` s odlišným revizním číslem knihovny `opencaddocument`. API v14 ověřuje také `OCS_WIRE_SCHEMA`; odlišný datový kontrakt může způsobit ukončení procesu pluginu. Příčina hlášení zatím nebyla z běhového logu potvrzena.
 
 - Architektura: https://github.com/HakanSeven12/OpenCADStudio/blob/main/docs/plugin-architecture.md
 - Vzor: https://github.com/HakanSeven12/opencad-example-plugin
 - Zdrojový CAD: https://github.com/HakanSeven12/OpenCADStudio
 
 Licence: GPL-3.0-only (viz soubor LICENSE). Přímé přebírání kódu komerčních nadstaveb AutoCADu zde není.
+
+## Oprava pro Open CAD Studio 2026.44
+
+Nejprve vytvoř a nainstaluj GitHub Release `v0.1.1`. V Plugin Manageru odeber staré vydání `v0.1.0`, restartuj CAD, nainstaluj `Liborias/solar-cad-cz` a znovu restartuj. Otestuj postupně příkazy `SOL_HELP`, `SOL_DEMO` a `SOL_LAYOUT`. Pokud se zobrazí `process died; skipping dispatch`, předej prosím přesný log z plugin runneru, protože tato hláška v příkazové řádce neobsahuje konkrétní důvod pádu.
