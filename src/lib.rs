@@ -1,11 +1,11 @@
-//! Solar CAD CZ - Vyuka v0.1.0 (Open CAD Studio API v14).
+//! Solar CAD CZ - Vyuka v0.1.2 (Open CAD Studio API v14).
 //! Educational use only; this does NOT certify photovoltaic installation designs.
 mod layout;
 use layout::{compute,Orientation,Parameters};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use ocs_plugin_api::dialog::{DialogControl,DialogDef,DialogResponse,DialogValue};
-use ocs_plugin_api::host::{acadrust,BuiltinPlugin,HostApi,LayerConfig,ExtendedDataRecord,XDataValue};
+use ocs_plugin_api::host::{acadrust,BuiltinPlugin,HostApi,LayerConfig,ExtendedDataRecord,XDataValue,InteractiveCommand,CommandStep};
 use ocs_plugin_api::manifest::{ApiVersion,PluginManifest};
 use ocs_plugin_api::ribbon::{CadModule,IconKind,ModuleEvent,RibbonGroup,RibbonItem,ToolDef};
 use acadrust::entities::{LwPolyline,Text};
@@ -54,7 +54,7 @@ impl BuiltinPlugin for SolarPlugin {
  fn ribbon(&self)->Box<dyn CadModule>{Box::new(SolarModule)}
  fn dispatch(&self,host:&mut dyn HostApi,cmd:&str)->bool {
   match cmd.trim().to_ascii_uppercase().as_str(){
-   "SOL_LAYOUT"=>{design_dialog(host);true},
+   "SOL_LAYOUT"=>{ensure_project_layers(host);host.start_interactive(Box::new(SolarLayoutCommand));true},
    "SOL_DEMO"=>{draw_project(host,Parameters::default());true},
    "SOL_HELP"=>{help(host);true},
    _=>false
@@ -75,7 +75,7 @@ fn val(v:&HashMap<String,DialogValue>,id:&str)->Result<f64,String>{
   _=>Err(format!("Chybí číselná hodnota {id}."))
  }
 }
-fn design_dialog(host:&mut dyn HostApi){
+fn layout_form()->DialogDef{
  let p=Parameters::default();
  let form=DialogDef::new("Solar CAD CZ - navrh FV panelu")
   .width(490.).submit_label("Vytvorit vykres").cancel_label("Zrusit")
@@ -97,29 +97,50 @@ fn design_dialog(host:&mut dyn HostApi){
    options:vec!["Automaticky".into(),"Na vysku".into(),"Na sirku".into()],
    default_index:0
   });
- let v=match host.show_dialog(form){
-  DialogResponse::Submitted(v)=>v,
-  DialogResponse::Cancelled=>{host.push_info("Solar CAD CZ: zruseno.");return;}
+
+ form
+}
+fn parse_layout_parameters(v:&HashMap<String,DialogValue>)->Result<Parameters,String>{
+ let orientation=match v.get("orientation"){
+  Some(DialogValue::Choice{index:1,..})=>Orientation::Portrait,
+  Some(DialogValue::Choice{index:2,..})=>Orientation::Landscape,
+  _=>Orientation::Auto
  };
- let make=||->Result<Parameters,String>{
-  let orientation=match v.get("orientation"){
-   Some(DialogValue::Choice{index:1,..})=>Orientation::Portrait,
-   Some(DialogValue::Choice{index:2,..})=>Orientation::Landscape,
-   _=>Orientation::Auto
+ Ok(Parameters{
+  roof_width:val(v,"rw")?,roof_height:val(v,"rh")?,
+  module_width:val(v,"mw")?,module_height:val(v,"mh")?,
+  module_watt:val(v,"wp")?,gap:val(v,"gap")?,
+  setback:val(v,"offset")?,origin_x:val(v,"ox")?,origin_y:val(v,"oy")?,orientation
+ })
+}
+/// Open CAD Studio's HostApi::show_dialog is fire-and-forget (returns Cancelled
+/// immediately); only the InteractiveCommand callback receives submitted data.
+/// This command needs NO mouse clicks or point placement after submission.
+struct SolarLayoutCommand;
+impl InteractiveCommand for SolarLayoutCommand {
+ fn prompt(&self)->String {"Vyplnte parametry a potvrdte Vytvorit vykres.".into()}
+ fn on_point(&mut self,_:[f64;3])->CommandStep{CommandStep::Cancel}
+ fn on_enter(&mut self)->CommandStep{CommandStep::Cancel}
+ fn modal_dialog(&self)->Option<DialogDef>{Some(layout_form())}
+ fn on_dialog_response(&mut self,response:DialogResponse)->CommandStep{
+  let values=match response{
+   DialogResponse::Cancelled=>return CommandStep::Cancel,
+   DialogResponse::Submitted(values)=>values
   };
-  Ok(Parameters{
-   roof_width:val(&v,"rw")?,roof_height:val(&v,"rh")?,
-   module_width:val(&v,"mw")?,module_height:val(&v,"mh")?,
-   module_watt:val(&v,"wp")?,gap:val(&v,"gap")?,
-   setback:val(&v,"offset")?,origin_x:val(&v,"ox")?,
-   origin_y:val(&v,"oy")?,orientation
-  })
- };
- match make(){
-  Ok(p)=>draw_project(host,p),
-  Err(e)=>host.push_error(&format!("Solar CAD CZ: {e}"))
+  let p=match parse_layout_parameters(&values){
+   Ok(p)=>p,
+   Err(e)=>{eprintln!("[Solar CAD CZ] Chybne parametry: {e}");return CommandStep::Cancel;}
+  };
+  match build_layout_entities(&p){
+   Ok((entities,count,power))=>{
+    eprintln!("[Solar CAD CZ] Vytvarim {count} panelu, {:.3} kWp",power/1000.);
+    CommandStep::CommitManyAndEnd(entities)
+   }
+   Err(e)=>{eprintln!("[Solar CAD CZ] Nelze vytvorit navrh: {e}");CommandStep::Cancel}
+  }
  }
 }
+
 fn rect(x:f64,y:f64,w:f64,h:f64,layer:&str)->EntityType{
  let mut entity=LwPolyline::from_points(vec![
   Vector2::new(x,y),Vector2::new(x+w,y),
@@ -145,6 +166,54 @@ fn ensure_layer(host:&mut dyn HostApi,name:&str,color:Color,description:&str){
   name:name.to_owned(),color:Some(color),description:Some(description.to_owned()),
   ..Default::default()
  });
+}
+
+/// Build entities for the form-driven interactive command. The returned entities
+/// are committed as one built-in CAD operation when the modal is submitted.
+fn build_layout_entities(p:&Parameters)->Result<(Vec<EntityType>,usize,f64),String>{
+ let result=compute(p).map_err(str::to_owned)?;
+ let mut entities=Vec::with_capacity(2*result.panels.len()+16);
+ let mut roof=rect(p.origin_x,p.origin_y,p.roof_width,p.roof_height,"SOL_STRECHA");
+ roof.common_mut().extended_data.upsert_record(record(vec![
+  "type=roof".into(),"schema=solar-cad-cz-v1".into(),
+  format!("width_mm={}",p.roof_width),format!("height_mm={}",p.roof_height),
+  format!("setback_mm={}",p.setback)
+ ]));
+ entities.push(roof);
+ for (i,m) in result.panels.iter().enumerate(){
+  let mut module=rect(m.x,m.y,m.width,m.height,"SOL_PANELY");
+  module.common_mut().extended_data.upsert_record(record(vec![
+   "type=module".into(),"schema=solar-cad-cz-v1".into(),
+   format!("row={}",m.row),format!("col={}",m.column),
+   format!("power_wp={}",p.module_watt),
+   format!("width_mm={}",p.module_width),format!("height_mm={}",p.module_height)
+  ]));
+  entities.push(module);
+  entities.push(text_at(format!("P{:03}",i+1),m.x+0.09*m.width,
+   m.y+0.1*m.height,120.,"SOL_POPISY"));
+ }
+ let legend=[
+  "SOLAR CAD CZ - VYUKA".to_owned(),
+  format!("STRECHA: {:.0} x {:.0} mm",p.roof_width,p.roof_height),
+  format!("PANEL: {:.0} x {:.0} mm / {:.0} Wp",p.module_width,p.module_height,p.module_watt),
+  format!("ROZLOZENI: {} x {}",result.columns,result.rows),
+  format!("POCET: {} ks",result.panels.len()),
+  format!("VYKON: {:.3} kWp",result.total_watt/1000.),
+  format!("POKRYTI STRECHY: {:.1} %",result.coverage_percent),
+  format!("ORIENTACE: {}",if result.portrait{"NA VYSKU"}else{"NA SIRKU"}),
+  "POUZE VYUKA - NE PRO REALIZACI".to_owned()
+ ];
+ let lx=p.origin_x+p.roof_width+750.;
+ let ly=p.origin_y+p.roof_height-100.;
+ for (i,line) in legend.iter().enumerate(){
+  entities.push(text_at(line,lx,ly-i as f64*360.,
+    if i==0{250.}else{180.},"SOL_POPISY"));
+ }
+ Ok((entities,result.panels.len(),result.total_watt))
+}
+
+fn ensure_project_layers(host:&mut dyn HostApi){
+ ensure_project_layers(host);
 }
 fn draw_project(host:&mut dyn HostApi,p:Parameters){
  let result=match compute(&p){
@@ -213,4 +282,24 @@ fn help(host:&mut dyn HostApi){
  host.push_info("SOL_DEMO: Modelova strecha 10 x 6,5 m, 25 modulu, 11,25 kWp.");
  host.push_info("SOL_HELP: Napoveda. Vytvorene hladiny: SOL_STRECHA, SOL_PANELY, SOL_POPISY.");
  host.push_info("Vyukove odstupy nejsou normove hodnoty. NENI URCENO PRO REALIZACI.");
+}
+
+#[cfg(test)]
+mod dialog_tests {
+ use super::*;
+ #[test] fn form_has_required_inputs(){
+  let def=layout_form();
+  assert!(def.rows.len()>=10);
+  let ids:Vec<_>=def.rows.iter().flat_map(|r|r.controls.iter().filter_map(|c|c.id())).collect();
+  assert!(ids.contains(&"rw"));
+  assert!(ids.contains(&"orientation"));
+ }
+ #[test] fn model_creates_panel_entities(){
+  let (entities,count,power)=build_layout_entities(&Parameters::default()).unwrap();
+  assert_eq!(count,25);
+  assert_eq!(power,11250.);
+  assert_eq!(entities.len(),1+2*25+9);
+  assert!(entities[0].common().extended_data.get_record(APP).is_some());
+  assert!(entities[1].common().extended_data.get_record(APP).is_some());
+ }
 }

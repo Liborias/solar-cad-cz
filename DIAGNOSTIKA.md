@@ -24,3 +24,11 @@ V `v0.1.1` je SDK přímo připnutý na release commit `0e77cae652271d08c7619238
 Pokud plugin stále padá, uchovat screenshot a chybový výpis z běhu Open CAD Studia/runneru. Běžná hláška `process died` sama o sobě neukazuje konkrétní důvod. Nezměňovat náhodně parametry projektu ani neinstalovat zpět v0.1.0.
 
 **Bezpečnost:** Výukový plugin není určen pro skutečné elektrotechnické projekty.
+
+## Oprava dialogu v0.1.2
+
+Na Windows OCS 2026.44 po úspěšné instalaci v0.1.1 fungovaly `SOL_HELP` a `SOL_DEMO`, avšak `SOL_LAYOUT` zobrazil parametrický dialog a po potvrzení psal do konzole `Solar CAD CZ: zruseno.`.
+
+Příčina potvrzena v `src/app/plugin_host.rs` OCS: `HostSession::show_dialog` otevře dialog, ale bez čekání vrací `DialogResponse::Cancelled`. Pro zpracování skutečného odeslání je potřeba `HostApi::start_interactive` a `InteractiveCommand::modal_dialog / on_dialog_response`.
+
+V0.1.2 používá správný interaktivní životní cyklus. Kliknutí na `Vytvorit vykres` by mělo ihned vložit všechny entity do výkresu (není potřeba žádný klik do pracovní plochy). Ověřte po vydání a přeinstalování nové DLL. `SOL_DEMO` zůstává beze změny.

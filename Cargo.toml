@@ -1,6 +1,6 @@
 [package]
 name = "solar-cad-cz"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Educational photovoltaic roof layout for Open CAD Studio"
 license = "GPL-3.0-only"
